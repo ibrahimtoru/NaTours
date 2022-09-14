@@ -4,6 +4,9 @@ const toursController = require("../controllers/tours-controllers");
 
 const router = express.Router();
 
+router.route("/tours-stats").get(toursController.getTourStats);
+router.route("/monthly-plan/:year").get(toursController.getMonthlyPlan);
+
 router
   .route("/top-5-cheap")
   .get(toursController.aliasTopTours, toursController.getAllTours);
