@@ -2,8 +2,9 @@ const express = require("express");
 
 const morgan = require("morgan");
 
+const AppError = require("./utils/app-error");
+const globalErrorHandler = require("./controllers/error-controller");
 const toursRoutes = require("./routes/tours-routes");
-
 const usersRoutes = require("./routes/users-routes");
 
 const app = express();
@@ -14,5 +15,11 @@ app.use(express.json()); //express.json() is based on body-parser, to parse inco
 app.use(express.static(`${__dirname}/public`));
 app.use("/api/v1/tours", toursRoutes);
 app.use("/api/v1/users", usersRoutes);
+
+app.all("*", (req, res, next) => {
+  next(new AppError(`could not find ${req.originalUrl} on this server`, 404));
+});
+
+app.use(globalErrorHandler);
 
 module.exports = app;
