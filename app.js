@@ -13,6 +13,12 @@ const app = express();
 if (process.env.NODE_ENV === "development") app.use(morgan("dev"));
 app.use(express.json()); //express.json() is based on body-parser, to parse incoming reqs with json payloads
 app.use(express.static(`${__dirname}/public`));
+// app.use((req,res,next) => {
+//   req.requestTime = new Date().toISOString()
+//   next()
+// })
+
+// Routes
 app.use("/api/v1/tours", toursRoutes);
 app.use("/api/v1/users", usersRoutes);
 
