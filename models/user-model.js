@@ -15,6 +15,8 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     validate: [validator.isEmail, "Please provide a valid email"],
   },
+  loginAttemptsLeft: { type: Number, reuired: true, default: 5 },
+  loginWaitTime: { type: Date, required: true, default: Date.now() },
   photo: String,
   role: {
     type: String,
@@ -31,6 +33,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, "Please confirm your password"],
     validate: {
+      // This only works on create() and save()!!
       validator: function (cnfmPass) {
         return cnfmPass === this.password;
       },
@@ -40,13 +43,26 @@ const userSchema = new mongoose.Schema({
   passwordChangedAt: Date,
   passwordResetToken: String,
   passwordResetExpires: Date,
+  active: {
+    type: Boolean,
+    default: true,
+    select: false,
+  },
 });
+
+// Middlewares
 
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
 
   this.password = await bcrypt.hash(this.password, 12);
   this.confirmPassword = undefined;
+});
+
+userSchema.pre(/^find/, function (next) {
+  // in query middleware "this" refers to the current query
+  this.find({ active: { $ne: false } });
+  next();
 });
 
 // creating instance method ⬇ instance method is available on the doc

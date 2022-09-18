@@ -12,6 +12,28 @@ const signToken = (id) =>
     expiresIn: process.env.JWT_EXPIRES_IN,
   });
 
+const createAndSendToken = (user, statusCode, res) => {
+  const token = signToken(user._id);
+  const cookieOptions = {
+    expires: new Date(
+      Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+    ),
+    httpOnly: true,
+  };
+  if (process.env.NODE_ENV === "production") cookieOptions.secure = true;
+  res.cookie("jwt", token, cookieOptions);
+
+  user.password = undefined; // remove password from the responseData
+
+  res.status(statusCode).json({
+    status: "success",
+    token,
+    data: {
+      user: user,
+    },
+  });
+};
+
 exports.signup = catchAsync(async (req, res, next) => {
   const newUser = await User.create({
     name: req.body.name,
@@ -21,15 +43,7 @@ exports.signup = catchAsync(async (req, res, next) => {
     role: req.body.role,
   });
 
-  const token = signToken(newUser._id);
-
-  res.status(201).json({
-    status: "success",
-    token,
-    data: {
-      user: newUser,
-    },
-  });
+  createAndSendToken(newUser, 201, res);
 });
 
 exports.login = catchAsync(async (req, res, next) => {
@@ -40,15 +54,52 @@ exports.login = catchAsync(async (req, res, next) => {
 
   const user = await User.findOne({ email }).select("+password");
 
-  if (!user || !(await user.correctPassword(password, user.password)))
-    return next(new AppError("Invalid email or password", 404));
+  if (!user) return next(new AppError("Invalid email or password", 404));
 
-  const token = signToken(user._id);
+  if (
+    user &&
+    (await user.correctPassword(password, user.password)) &&
+    user.loginWaitTime <= Date.now()
+  ) {
+    await User.findByIdAndUpdate(user.id, {
+      loginAttemptsLeft: 5,
+      loginWaitTime: Date.now(),
+    });
 
-  res.status(200).json({
-    status: "success",
-    token,
-  });
+    return createAndSendToken(user, 200, res);
+  }
+  if (user.loginWaitTime > Date.now()) {
+    const waitTime = (user.loginWaitTime - Date.now()) / 60000;
+    return next(
+      new AppError(
+        `Please wait ${waitTime.toFixed(1)} minutes before trying again.`,
+        400
+      )
+    );
+  }
+
+  if (user.loginAttemptsLeft <= 0 && user.loginWaitTime < Date.now()) {
+    await User.findByIdAndUpdate(user.id, {
+      loginWaitTime: Date.now() + 900000,
+      loginAttemptsLeft: 2,
+    });
+    return next(
+      new AppError(
+        "You have exceeded max login attempts please wait 15 minutes before trying again.",
+        400
+      )
+    );
+  }
+
+  if (user && !(await user.correctPassword(password, user.password))) {
+    await User.findByIdAndUpdate(user.id, { $inc: { loginAttemptsLeft: -1 } });
+    return next(
+      new AppError(
+        `Invalid email or password. Login attempts left: ${user.loginAttemptsLeft}`,
+        404
+      )
+    );
+  }
 });
 
 exports.protect = catchAsync(async (req, res, next) => {
@@ -144,10 +195,19 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
   user.passwordResetExpires = undefined;
   await user.save();
 
-  const token = signToken(user._id);
+  createAndSendToken(user, 200, res);
+});
 
-  res.status(200).json({
-    status: "success",
-    token,
-  });
+exports.updatePassword = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.user.id).select("+password");
+
+  if (!(await user.correctPassword(req.body.currentPassword, user.password)))
+    return next(new AppError("Your current password is wrong.", 401));
+
+  user.password = req.body.password;
+  user.confirmPassword = req.body.confirmPassword;
+
+  await user.save();
+
+  createAndSendToken(user, 200, res);
 });
