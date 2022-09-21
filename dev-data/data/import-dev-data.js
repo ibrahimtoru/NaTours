@@ -7,12 +7,12 @@ const Tour = require("../../models/tour-model");
 
 dotenv.config({ path: "./config.env" });
 
-// const DB = process.env.DATABASE.replace(
-//   "<PASSWORD>",
-//   process.env.DATABASE_PASSWORD
-// );
+const DB = process.env.DATABASE.replace(
+  "<PASSWORD>",
+  process.env.DATABASE_PASSWORD
+);
 
-const DB = process.env.LOCAL_DATABASE;
+// const DB = process.env.LOCAL_DATABASE;
 
 mongoose
   .connect(DB, {
@@ -29,7 +29,7 @@ mongoose
 // });
 
 // Read json file
-const filePath = `${__dirname}/tours-simple.json`;
+const filePath = `${__dirname}/tours.json`;
 const tours = JSON.parse(fs.readFileSync(filePath, "utf-8"));
 const fileName = path.basename(filePath);
 // import data into database;

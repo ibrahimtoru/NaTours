@@ -46,7 +46,7 @@ exports.signup = catchAsync(async (req, res, next) => {
   createAndSendToken(newUser, 201, res);
 });
 
-exports.login = catchAsync(async (req, res, next) => {
+/* exports.login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return next(new AppError("Please provide email and password!", 400));
@@ -56,18 +56,6 @@ exports.login = catchAsync(async (req, res, next) => {
 
   if (!user) return next(new AppError("Invalid email or password", 404));
 
-  if (
-    user &&
-    (await user.correctPassword(password, user.password)) &&
-    user.loginWaitTime <= Date.now()
-  ) {
-    await User.findByIdAndUpdate(user.id, {
-      loginAttemptsLeft: 5,
-      loginWaitTime: Date.now(),
-    });
-
-    return createAndSendToken(user, 200, res);
-  }
   if (user.loginWaitTime > Date.now()) {
     const waitTime = (user.loginWaitTime - Date.now()) / 60000;
     return next(
@@ -100,6 +88,35 @@ exports.login = catchAsync(async (req, res, next) => {
       )
     );
   }
+
+  const correctPassword =
+    user && (await user.correctPassword(password, user.password));
+  if (correctPassword && user.loginWaitTime <= Date.now()) {
+    await User.findByIdAndUpdate(user.id, {
+      loginAttemptsLeft: 5,
+      loginWaitTime: Date.now(),
+    });
+
+    createAndSendToken(user, 200, res);
+  }
+});
+ */
+exports.login = catchAsync(async (req, res, next) => {
+  const { email, password } = req.body;
+
+  // 1) Check if email and password exist
+  if (!email || !password) {
+    return next(new AppError("Please provide email and password!", 400));
+  }
+  // 2) Check if user exists && password is correct
+  const user = await User.findOne({ email }).select("+password");
+
+  if (!user || !(await user.correctPassword(password, user.password))) {
+    return next(new AppError("Incorrect email or password", 401));
+  }
+
+  // 3) If everything ok, send token to client
+  createAndSendToken(user, 200, res);
 });
 
 exports.protect = catchAsync(async (req, res, next) => {
