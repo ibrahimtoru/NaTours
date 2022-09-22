@@ -37,6 +37,7 @@ const tourSchema = new mongoose.Schema(
       default: 4.5,
       min: [1, "Rating must be bewtween 1 and 5"],
       max: [5, "Rating must be bewtween 1 and 5"],
+      // set: (value) => Math.round(value * 10) / 10, // 4.66666 => 46.6666 => 47 => 4.7
     },
     ratingsQuantity: {
       type: Number,
@@ -113,6 +114,12 @@ const tourSchema = new mongoose.Schema(
   }
 );
 
+// tourSchema.index({ price: 1 });
+// // Compound index ⬇
+tourSchema.index({ price: 1, ratingsAverage: -1 });
+tourSchema.index({ slug: 1 });
+tourSchema.index({ $startLocation: "2dsphere" });
+
 // virtual properties are not part of the database and cannot be queried on.
 tourSchema.virtual("durationWeeks").get(function () {
   return this.duration / 7;
@@ -125,7 +132,7 @@ tourSchema.virtual("reviews", {
   localField: "_id", // the reference.
 });
 
-////// mongoose's middlewares ////
+// // mongoose's middlewares // //
 // 1) document middleware ⬇: runs before and only on .save() and .create()
 tourSchema.pre("save", function (next) {
   this.slug = slugify(this.name, { lower: true }); // this refers to the currently processed document
@@ -168,10 +175,10 @@ tourSchema.post(/^find/, (docs, next) => {
 });
  */
 // 3) Aggregation Middleware
-tourSchema.pre("aggregate", function (next) {
-  // this refers to the aggregation here
-  this.pipeline().unshift({ $match: { secretTour: { $ne: true } } });
-  next();
-});
+// tourSchema.pre("aggregate", function (next) {
+//   // "this" refers to the aggregation here
+//   this.pipeline().unshift({ $match: { secretTour: { $ne: true } } });
+//   next();
+// });
 
 module.exports = mongoose.model("Tour", tourSchema);

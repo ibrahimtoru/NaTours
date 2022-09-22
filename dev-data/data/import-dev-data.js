@@ -1,9 +1,10 @@
 const fs = require("fs");
-const path = require("path");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 
 const Tour = require("../../models/tour-model");
+const User = require("../../models/user-model");
+const Review = require("../../models/review-model");
 
 dotenv.config({ path: "./config.env" });
 
@@ -28,19 +29,22 @@ mongoose
 //   console.log(`App running on port ${port}`);
 // });
 
-// Read json file
-const filePath = `${__dirname}/tours.json`;
-const tours = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-const fileName = path.basename(filePath);
-// import data into database;
+// READ JSON FILE
+const tours = JSON.parse(fs.readFileSync(`${__dirname}/tours.json`, "utf-8"));
+const users = JSON.parse(fs.readFileSync(`${__dirname}/users.json`, "utf-8"));
+const reviews = JSON.parse(
+  fs.readFileSync(`${__dirname}/reviews.json`, "utf-8")
+);
+
+// IMPORT DATA INTO DB
 const importData = async () => {
   try {
     await Tour.create(tours);
-    console.log(
-      `Inserted all documents from file "${fileName}" to collection ${Tour.collection.collectionName}`
-    );
-  } catch (error) {
-    console.log(error.message);
+    await User.create(users, { validateBeforeSave: false });
+    await Review.create(reviews);
+    console.log("Data successfully loaded!");
+  } catch (err) {
+    console.log(err);
   }
   process.exit();
 };
@@ -49,11 +53,11 @@ const importData = async () => {
 const deleteData = async () => {
   try {
     await Tour.deleteMany();
-    console.log(
-      `Deleted all documents from the collection ${Tour.collection.collectionName}`
-    );
-  } catch (error) {
-    console.log(error.message);
+    await User.deleteMany();
+    await Review.deleteMany();
+    console.log("Data successfully deleted!");
+  } catch (err) {
+    console.log(err);
   }
   process.exit();
 };
